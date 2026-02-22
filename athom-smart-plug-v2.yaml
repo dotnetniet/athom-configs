@@ -5,7 +5,7 @@ substitutions:
   room: ""
   device_description: "athom smart plug v2"
   project_name: "Athom Technology.Smart Plug V2"
-  project_version: "v2.0.7"
+  project_version: "v2.0.8"
   sensor_update_interval: "10s"
   relay_restore_mode: RESTORE_DEFAULT_ON
   # Current Limit in Amps. AU Plug = 10. IL, BR, EU, UK, US Plug = 16.
@@ -46,6 +46,10 @@ esphome:
   project:
     name: "${project_name}"
     version: "${project_version}"
+  platformio_options:
+    board_upload.flash_size: 2MB
+    board_upload.maximum_size: 2097152
+    board_build.ldscript: eagle.flash.2m.ld
   on_boot:
     - priority: 600
       then:
@@ -86,9 +90,6 @@ logger:
   level: ${log_level}
   baud_rate: 0
 
-mdns:
-  disabled: false
-
 web_server:
   port: 80
 #  version: 3
@@ -103,6 +104,9 @@ wifi:
   fast_connect: "${wifi_fast_connect}"
   # Define dns domain / suffix to add to hostname
   domain: "${dns_domain}"
+
+mdns:
+  disabled: false
 
 captive_portal:
 
@@ -193,14 +197,16 @@ sensor:
     entity_category: diagnostic
     device_class: ""
 
+  # CSE7766 power monitoring chip
   - platform: cse7766
     id: athom_cse7766
     current:
       name: "Current"
+      id: plug_current  # Added ID so we can reference this in other sensors
       icon: mdi:current-ac
       filters:
         - throttle_average: ${sensor_update_interval}
-        - lambda: if (x < 0.060) return 0.0; else return x;   #For the chip will report less than 3w power when no load is connected
+        - lambda: if (x < 0.060) return 0.0; else return x;   # For the chip will report less than 3w power when no load is connected
       on_value_range:
         - above: ${current_limit}
           then:
@@ -208,6 +214,7 @@ sensor:
 
     voltage:
       name: "Voltage"
+      id: plug_voltage  # Added ID so we can reference this in other sensors
       icon: mdi:sine-wave
       filters:
         - throttle_average: ${sensor_update_interval}
@@ -218,7 +225,7 @@ sensor:
       icon: mdi:power
       filters:
         - throttle_average: ${sensor_update_interval}
-        - lambda: if (x < 3.0) return 0.0; else return x;    #For the chip will report less than 3w power when no load is connected
+        - lambda: if (x < 3.0) return 0.0; else return x;    # For the chip will report less than 3w power when no load is connected
 
     energy:
       name: "Energy"
@@ -238,7 +245,6 @@ sensor:
               id(total_energy) += current_energy_value - previous_energy_value;
               previous_energy_value = current_energy_value;
               id(total_energy_sensor).update();
-
 
     apparent_power:
       name: "Apparent Power"
